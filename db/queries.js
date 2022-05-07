@@ -1,6 +1,6 @@
 const mysql = require('mysql2');
 // Import queries
-const { selectDepartment, selectRoles, selectEmployees } = require('./queries_helper')
+const { selectDepartment, findDeptId, selectRoles, selectEmployees, selectDeptName, selectRoleName } = require('./queries_helper')
 // ENV
 require('dotenv').config();
 
@@ -23,6 +23,19 @@ const getDeptInfo = new Promise((resolve, reject) => {
         }
     });
 });
+// Get Department Matching ID
+const getDeptId = (value) => {
+
+    return new Promise((resolve, reject) => {
+        con.query(findDeptId, value, (err, response) => {
+            if (err) {
+                reject(err);
+            } else {
+                resolve(response);
+            }
+        });
+    })
+}
 
 // Get Roles Data
 const getRolesInfo = new Promise((resolve, reject) => {
@@ -46,8 +59,33 @@ const getEmploInfo = new Promise((resolve, reject) => {
     });
 });
 
+// Get Employee Data
+const addDept = (name) => {
+
+    con.query(selectDeptName, name, (err, response) => {
+        if (err) console.log(err);
+    });
+};
+
+const addRole = (name, salary, deptId) => {
+
+    con.query(selectRoleName, [name, salary, deptId], (err, response) => {
+        if (err) console.log(err);
+    });
+
+}
+
+const endCon = () => {
+    console.log("\x1b[33m", "Application closed")
+    con.end();
+}
+
 module.exports = {
     getDeptInfo,
+    getDeptId,
     getRolesInfo,
-    getEmploInfo
+    getEmploInfo,
+    addDept,
+    endCon,
+    addRole
 }
