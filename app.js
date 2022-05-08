@@ -1,15 +1,16 @@
-const fs = require("fs"); // File system module
 const inquirer = require("./node_modules/inquirer/lib/inquirer"); // Inquirer module
+const cTable = require('console.table');
 // Import classes
-const { Department, Role, Employee } = require('./classes/employees');
 const { PromptObj, Choices } = require('./classes/prompts');
-const { getDeptInfo, getDeptId, getRolesInfo, getEmploInfo, addDept, endCon, addRole } = require('./db/queries');
-const { finished } = require("stream");
+const db = require("./db/connection");
+const query = require('./db/queries_helper')
+
 
 // Validate Entries
-
 // Create red text
 let redText = "\x1b[31m"; // Invalid input
+let greenText = "\x1b[32m"; // Invalid input
+let spacer = () => console.log("\n");
 
 // Handle incorrect entries
 const handleExceptions = (input, type) => {
@@ -41,84 +42,97 @@ const AddDepartmentOption = [new PromptObj("departmentName", "What is the name o
     return handleExceptions(input, "dept");
 })];
 
-const AddRoleOption = (arr) => {
+const addRoleOption = {
     
-    return [
+    roleInfo: [
         new PromptObj("roleName", "What is the role called? ", "input", function (input) {
             return handleExceptions(input, "role");
         }),
         new PromptObj("salary", "What is the salary for this role? ", "input", function (input) {
             return handleExceptions(input, "decimal");
-        }),
-        new Choices("departmentSelection", "Which department will this role belong too? ", "list", arr)
-    ];
+        })
+    ],
+    departments: (arr) => new Choices("departmentSelection", "Which department will this role belong too? ", "list", arr)
 };
 
 // Construct Inquiry
 // Start Application
 const begin = () => {
-    inquirer.prompt(greeting).then((response) => {
-        response.greetingConfirmation ? provideMenu() : false;
-    })
+    inquirer.prompt(greeting)
+        .then((response) => {
+            // Open Menu
+            response.greetingConfirmation ? provideMenu() : false;
+        })
 };
 // Provide menu items
-const provideMenu = async () => {
+const provideMenu = () => {
     inquirer.prompt(menuOptions).then((response) => {
         // Get Department Data
         if (response.optionsSelect === 'View all departments') {
-            getDeptInfo
-            .then((res) => {
-                console.table(res);
-                provideMenu();
-            })
-        } else if (response.optionsSelect === 'View all roles') {
-            getRolesInfo
-            .then((res) => {
-                console.table(res);
-                provideMenu();
-            })
-        } else if (response.optionsSelect === 'View all employees') {
-            getEmploInfo
-            .then((res) => {
-                console.table(res);
-                provideMenu();
-            })
+            getDeptInfo();
         } else if (response.optionsSelect === 'Add a department') {
             promptDept();
+        } else if (response.optionsSelect === 'View all roles') {
+            getRolesInfo();
         } else if (response.optionsSelect === 'Add a role') {
             promptRole();
         } else if (response.optionsSelect === 'Finish') {
-            endCon();
-        };
+            // End Program
+            console.log(greenText, "Updated completed. Application terminating.")
+            process.exit();
+        }
     })
 };
+
+// Get Info on Departments
+const getDeptInfo = () => {
+    db.query(query.selectDepartment, (err, response) => {
+        if (err) console.log(err);
+        //Render Department Info Table
+        spacer();
+        console.table(response);
+        return provideMenu();
+    })
+};
+
 // Add a Department
 const promptDept = () => {
-    inquirer.prompt(AddDepartmentOption).then((response) => {
-        addDept(response.departmentName);
-    });
-};
-// Add a Role
-const promptRole = async () => {
-    let departments = [];
-
-    await getDeptInfo
-    .then((res) => {
-        res.forEach(department => {
-            departments.push(department);
+    return inquirer.prompt(AddDepartmentOption).then(response => {
+        db.query(query.addDeptName, response.departmentName, (err) => {
+            if (err) console.log(err);
+            return getDeptInfo();
         })
     })
-    .then(() => {
-        inquirer.prompt(AddRoleOption(departments)).then((response) => {
-            getDeptId(response.departmentSelection)
-            .then((res) => {
-                addRole(response.roleName, response.salary , res[0].id);
-                console.log("\x1b[32m", ` Role added with; name: ${response.roleName}, Salary: ${response.salary}, and ID: ${res[0].id} (${response.departmentSelection}).`);
-                provideMenu();
-            })
-        });
-    })
 };
 
-begin();
+// View Roles
+const getRolesInfo = () => {
+    db.query(query.selectRoles, (err, response) => {
+        if (err) console.log(err);
+        //Render Department Info Table
+        spacer();
+        console.table(response);
+        return provideMenu();
+    })
+}
+
+// Add a Role
+const promptRole = () => {
+    return inquirer.prompt(addRoleOption.roleInfo)
+    .then (roleInfo => {
+      const { roleName, salary } = roleInfo;
+      db.query(query.selectDepartment, (err, departments) => {
+        if (err) console.log(err);
+        const deptNames = departments.map(dept => dept.name);
+        inquirer.prompt(addRoleOption.departments(deptNames))
+        .then(departmentAnswer => {
+          console.log(departmentAnswer)
+        });
+      });
+    });
+  };
+
+
+
+module.exports = begin;
 

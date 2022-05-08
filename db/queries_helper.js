@@ -21,9 +21,9 @@ ON department_id = department.id
 LEFT JOIN Employee manager
 ON employee.manager_id = manager.id`;
 
-const selectDeptName = `INSERT INTO department (name) VALUES (?)`;
+const addDeptName = `INSERT INTO department (name) VALUES (?)`;
 
-const selectRoleName = `
+const addRoleName = `
 INSERT INTO role (title, salary, department_id)
 VALUES
 (?, ?, ?)`;
@@ -33,6 +33,6 @@ module.exports = {
     findDeptId,
     selectRoles,
     selectEmployees,
-    selectDeptName,
-    selectRoleName,
+    addDeptName,
+    addRoleName,
 }
