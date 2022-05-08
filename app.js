@@ -1,7 +1,10 @@
 const inquirer = require("./node_modules/inquirer/lib/inquirer"); // Inquirer module
 const cTable = require('console.table');
 // Import classes
-const { PromptObj, Choices } = require('./classes/prompts');
+const {
+    PromptObj,
+    Choices
+} = require('./classes/prompts');
 const db = require("./db/connection");
 const query = require('./db/queries_helper')
 
@@ -25,14 +28,14 @@ const handleExceptions = (input, type) => {
             console.log(redText, "Please match to decimal (.xx).");
             return false;
         };
-    } 
-    
+    }
+
     if (!input) {
         console.log(redText, "Nothing entered. Please enter a value");
         return false;
     } else if (input) {
         return true;
-    } 
+    }
 }
 
 //  Construct Data from classes
@@ -43,7 +46,7 @@ const AddDepartmentOption = [new PromptObj("departmentName", "What is the name o
 })];
 
 const addRoleOption = {
-    
+
     roleInfo: [
         new PromptObj("roleName", "What is the role called? ", "input", function (input) {
             return handleExceptions(input, "role");
@@ -51,8 +54,19 @@ const addRoleOption = {
         new PromptObj("salary", "What is the salary for this role? ", "input", function (input) {
             return handleExceptions(input, "decimal");
         })
-    ],
-    departments: (arr) => new Choices("departmentSelection", "Which department will this role belong too? ", "list", arr)
+    ]
+};
+
+const addAmployeeOption = {
+
+    employeeInfo: [
+        new PromptObj("name", "What is the employees first name? ", "input", function (input) {
+            return handleExceptions(input);
+        }),
+        new PromptObj("sirname", "What is the employees sirname ", "input", function (input) {
+            return handleExceptions(input);
+        })
+    ]
 };
 
 // Construct Inquiry
@@ -76,6 +90,10 @@ const provideMenu = () => {
             getRolesInfo();
         } else if (response.optionsSelect === 'Add a role') {
             promptRole();
+        } else if (response.optionsSelect === 'View all employees') {
+            getEmploInfo();
+        } else if (response.optionsSelect === 'Add an employee') {
+            promptEmployee();
         } else if (response.optionsSelect === 'Finish') {
             // End Program
             console.log(greenText, "Updated completed. Application terminating.")
@@ -119,20 +137,77 @@ const getRolesInfo = () => {
 // Add a Role
 const promptRole = () => {
     return inquirer.prompt(addRoleOption.roleInfo)
-    .then (roleInfo => {
-      const { roleName, salary } = roleInfo;
-      db.query(query.selectDepartment, (err, departments) => {
-        if (err) console.log(err);
-        const deptNames = departments.map(dept => dept.name);
-        inquirer.prompt(addRoleOption.departments(deptNames))
-        .then(departmentAnswer => {
-          console.log(departmentAnswer)
+        .then(roleInfo => {
+            const {
+                roleName,
+                salary
+            } = roleInfo;
+            db.query(query.selectDepartment, (err, departments) => {
+                if (err) console.log(err);
+                const deptNames = departments.map(dept => dept.name);
+                inquirer.prompt({"name": "departmentSelection", "message": "Which department will this role belong too? ", "type": "list", "choices": deptNames})
+                    .then(departmentAnswer => {
+                        const { departmentSelection } = departmentAnswer;
+                        db.query(query.findDeptId, departmentSelection, (err, response) => {
+                            db.query(query.addRoleName, [roleName, salary, response[0].id], (err) => {
+                                if (err) console.log(err);
+                                return getRolesInfo();
+                            })
+                        })
+                    });
+            });
         });
-      });
-    });
-  };
+};
 
+// View Roles
+const getEmploInfo = () => {
+    db.query(query.selectEmployees, (err, response) => {
+        if (err) console.log(err);
+        //Render Department Info Table
+        spacer();
+        console.table(response);
+        return provideMenu();
+    })
+}
 
+// Add an employee
+const promptEmployee = () => {
+    return inquirer.prompt(addAmployeeOption.employeeInfo)
+        .then(info => {
+            const {
+                name,
+                sirname
+            } = info;
+            db.query(query.getRoles, (err, roles) => {
+                const roleNames = roles.map(role => role.title);
+                inquirer.prompt({"name": "roleName", "message": `Which role is ${name} being assigned? `, "type": "list", "choices": roleNames})
+                    .then(role => {
+                        db.query(query.checkForManagers, (err, manager_name) => {
+                            const names = manager_name.map(x => x.managers_name).filter(y => y)
+                            names.push('New Manager')
+                            inquirer.prompt({"name": "manager", "message": "Who is this persons Manager? ", "type": "list", "choices": names})
+                                .then(results => {
+                                    db.query(query.getManagerId, role.roleName, (err, response) => {
+                                        const { manager } = results;
+                                        const arr = [name, sirname, response[0].id];
+                                        if (manager === "New Manager") {
+                                            db.query(query.addNewManager, arr, (err) => {
+                                                if (err) console.log(err);
+                                                return getEmploInfo();
+                                            })
+                                        } else {
+                                            arr.push(response[0].id)
+                                            db.query(query.addNewEmployee, arr, (err) => {
+                                                if (err) console.log(err);
+                                                return getEmploInfo();
+                                            })
+                                        }
+                                    })
+                                })
+                        })
+                    })
+            })
+        })
+}
 
 module.exports = begin;
-
