@@ -1,3 +1,5 @@
+// Department queries
+
 const selectDepartment = `
 SELECT * 
 FROM department`;
@@ -7,12 +9,20 @@ SELECT id
 FROM department
 WHERE name = ?`;
 
+const addDeptName = `INSERT INTO department (name) VALUES (?)`;
+
+// Role queries
+
 const selectRoles = `
 SELECT * 
 FROM role`;
 
+const getRoles = `
+SELECT title, id
+FROM role`;
+
 const selectEmployees = `
-SELECT employee.id AS employee_id, concat(employee.first_name, " ", employee.last_name) AS employee_name, employee.id AS manager_id, concat(manager.first_name, " ", manager.last_name) AS managers_name, title, department.name AS department_name, salary 
+SELECT employee.id AS employee_id, concat(employee.first_name, " ", employee.last_name) AS employee_name, manager.id AS manager_id, concat(manager.first_name, " ", manager.last_name) AS managers_name, title, department.name AS department_name, salary 
 FROM Employee employee
 JOIN role
 ON role_id = role.id
@@ -21,16 +31,12 @@ ON department_id = department.id
 LEFT JOIN Employee manager
 ON employee.manager_id = manager.id`;
 
-const addDeptName = `INSERT INTO department (name) VALUES (?)`;
-
 const addRoleName = `
 INSERT INTO role (title, salary, department_id)
 VALUES
 (?, ?, ?)`;
 
-const getRoles = `
-SELECT title, id
-FROM role`;
+// Employee queries
 
 const checkForManagers = `
 SELECT DISTINCT concat(manager.first_name, " ", manager.last_name) AS managers_name 
@@ -41,7 +47,12 @@ ON employee.manager_id = manager.id`;
 const getManagerId = `
 SELECT id
 FROM role
-WHERE title = ?`
+WHERE title = ?`;
+
+const confirmManager = `
+SELECT *
+FROM employee
+WHERE role_id = ?`;
 
 const addNewEmployee = `
 INSERT INTO employee (first_name, last_name, role_id, manager_id)
@@ -51,6 +62,11 @@ const addNewManager = `
 INSERT INTO employee (first_name, last_name, role_id)
 VALUES
 (?, ?, ?)`;
+
+// const updateEmployeeRole = `
+// UPDATE employee
+// SET role_id = ?, manager_id = ?
+// WHERE id = ?`;
 
 module.exports = {
     selectDepartment,
@@ -62,6 +78,8 @@ module.exports = {
     getRoles,
     checkForManagers,
     addNewEmployee,
+    confirmManager,
     addNewManager,
-    getManagerId
+    getManagerId,
+    updateEmployeeRole
 }

@@ -94,6 +94,8 @@ const provideMenu = () => {
             getEmploInfo();
         } else if (response.optionsSelect === 'Add an employee') {
             promptEmployee();
+        } else if (response.optionsSelect === 'Update an employee role') {
+            updateEmployee();
         } else if (response.optionsSelect === 'Finish') {
             // End Program
             console.log(greenText, "Updated completed. Application terminating.")
@@ -208,6 +210,53 @@ const promptEmployee = () => {
                     })
             })
         })
+}
+
+const updateEmployee = () => {
+    db.query(query.selectEmployees, (err, employees_response) => {
+        if (err) console.log(err);
+        const employees = employees_response.map(x => x.employee_name)
+        inquirer.prompt({"name": "selectdEmployee", "message": "Which employee? ", "type": "list", "choices": employees})
+            .then(employee => {
+                const employeeName = employee.selectdEmployee;
+                db.query(query.selectRoles, (err, roles_response) => {
+                    if (err) console.log(err);
+                    const roles = roles_response.map(x => x.title);
+                    inquirer.prompt({"name": "selectRole", "message": `Which role will ${employeeName} be assigned? `, "type": "list", "choices": roles})
+                        .then(role => {
+                            // Logic for assigning employee based off passed in information.
+                            const employeeArr = employees_response.filter(x => {
+                                if (x.employee_name === employeeName) {
+                                    return x;
+                                }  
+                            })
+                            roles_response.forEach(x => {
+                                if (x.title === employeeArr[0].title) {
+                                    employeeArr[0].role_id = x.id;
+                                }
+                                if (role.selectRole === x.title) {
+                                    employeeArr[0].newRole = x.id;
+                                }
+                            })
+                            db.query(query.confirmManager, employeeArr[0].newRole, (err, manager_info) => {
+                                if (manager_info[0].manager_id) {
+                                    // update as employee
+                                    const updateEmployeeQuery = [employeeArr[0].newRole, employeeArr[0].employee_id];
+                                } else {
+                                    // Update as manager
+                                    const updateEmployeeQuery = [employeeArr[0].newRole, employeeArr[0].employee_id];
+                                }
+                            })
+                            
+                        })
+                })
+            })
+    })
+                    // Update Employee
+
+                    // Things to check: Check of other employees and see how they update also
+
+                    
 }
 
 module.exports = begin;
