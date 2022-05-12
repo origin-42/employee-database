@@ -40,7 +40,7 @@ const handleExceptions = (input, type) => {
 
 //  Construct Data from classes
 const greeting = [new PromptObj("greetingConfirmation", "Welcome to your Employee Registry! Enter to begin your queries. Ready to begin? ", "confirm")];
-const menuOptions = [new Choices("optionsSelect", "Choose an enquiry", "list", ["View all departments", "View all roles", "View all employees", "Add a department", "Add a role", "Add an employee", "Update an employee role", "Update an employees manager", "Finish"])];
+const menuOptions = [new Choices("optionsSelect", "Choose an enquiry", "list", ["View all departments", "View all roles", "View all employees", "Add a department", "Add a role", "Add an employee", "Update an employee role", "Update an employees manager", "View employees by manager", "View employees by department", "Delete a department", "Delete a role", "Get department budget", "Finish"])];
 const AddDepartmentOption = [new PromptObj("departmentName", "What is the name of the department? ", "input", function (input) {
     return handleExceptions(input, "dept");
 })];
@@ -72,7 +72,12 @@ const addEmployeeOption = {
 const getDepartments = (deptNames) => [new Choices("departmentSelection", "Which department will this role belong too? \n", "list", deptNames)];
 const selectRole = (list) => [new Choices("employee", `Whose role will be updated? \n`, "list", list)]
 const getRoleName = (name, roleNames) => [new Choices("roleName", `Which role is ${name} being assigned? \n`, "list", roleNames)];
-const checkManagerName = (names) => [new Choices("manager", "Who is this persons Manager? ", "list", names)]
+const checkManagerName = (names) => [new Choices("manager", "Who is this persons Manager? ", "list", names)];
+const checkManager = (managers) => [new Choices("manager", "Which managers employees would you like to see? ", "list", managers)];
+const checkDepartmentEmployees = (departments) => [new Choices("department", "Which departments staff would you like to see? ", "list", departments)];
+const checkNumbrofEmployees = (departments) => [new Choices("department", "Which department do you want to view the budget for? ", "list", departments)];
+const deleteByDepartment = (departments) => [new Choices("department", "which department will be deleted? ", "list", departments)];
+const deleteByRole = (roles) => [new Choices("role", "which role will be deleted? ", "list", roles)];
 
 // Construct Inquiry
 // Start Application
@@ -103,6 +108,16 @@ const provideMenu = async () => {
         updateEmployee();
     } else if (menuPrompt.optionsSelect === 'Update an employees manager') {
         updateEmployeeManager();
+    } else if (menuPrompt.optionsSelect === 'View employees by manager') {
+        viewByManager();
+    } else if (menuPrompt.optionsSelect === 'View employees by department') {
+        viewByDepartment();
+    } else if (menuPrompt.optionsSelect === "Delete a department") {
+        deleteDepartment();
+    } else if (menuPrompt.optionsSelect === 'Delete a role') {
+        deleteRole();
+    } else if (menuPrompt.optionsSelect === 'Get department budget') {
+        getBudget();
     } else if (menuPrompt.optionsSelect === 'Finish') {
         // End Program
         console.log(greenText, "Updated completed. Application terminating.")
@@ -232,8 +247,82 @@ const updateEmployeeManager = async () => {
     getEmploInfo();
 };
 
+const viewByManager = async () => {
 
+    const selectEmployee = await db.promise().query(query.getEmployInfo);
+    const employees = selectEmployee[0].map(({first_name, last_name, id}) => ({name: `${first_name} ${last_name}`, value: id}));
+   
+    const managerSelected = await inquirer.prompt(checkManager(employees));
+    const details = [managerSelected.manager];
 
+    const managersEmployees = await db.promise().query(query.selectSubordinates, details);
+
+    if (managersEmployees[0].length > 0) {
+        present(managersEmployees[0]);
+        return provideMenu();
+    } else {
+        console.log(`\nThis employee manages nobody.\n`);
+        return provideMenu();
+    }
+}
+
+const viewByDepartment = async () => {
+
+    let departments = await db.promise().query(query.selectDepartment);
+    departments = departments[0].map(({name, id}) => ({name: name, value: id}));
+
+    const departmentSelected = await inquirer.prompt(checkDepartmentEmployees(departments));
+    const details = [departmentSelected.department];
+
+    const departmentEmployees = await db.promise().query(query.getDepartmentEmployees, details);
+
+    present(departmentEmployees[0]);
+    return provideMenu();
+
+};
+
+const deleteDepartment = async () => {
+
+    let departments = await db.promise().query(query.selectDepartment);
+    departments = departments[0].map(({name, id}) => ({name: name, value: id}));
+
+    const DepartmentToDelete = await inquirer.prompt(deleteByDepartment(departments));
+    const details = [DepartmentToDelete.department];
+
+    await db.promise().query(query.deleteFromDepartment, details);
+
+    getDeptInfo();
+};
+
+const deleteRole = async () => {
+
+    let roles = await db.promise().query(query.getRole);
+    roles = roles[0].map(({title, id}) => ({name: title, value: id}));
+
+    const roleToDelete = await inquirer.prompt(deleteByRole(roles));
+    const details = roleToDelete.role;
+
+    await db.promise().query(query.deleteByRole, details);
+
+    getRolesInfo();
+};
+
+const getBudget = async () => {
+
+    let departments = await db.promise().query(query.selectDepartment);
+    departments = departments[0].map(({name, id}) => ({name: name, value: id}));
+
+    const departmentSelected = await inquirer.prompt(checkNumbrofEmployees(departments));
+    const details = [departmentSelected.department];
+    
+    const departmentEmployees = await db.promise().query(query.getDepartmentSalaries, details);
+    const salaries = departmentEmployees[0].map(({salary, ...rest}) => +salary ).reduce(
+        (previousValue, currentValue) => previousValue + currentValue);
+
+    console.log(greenText, `\nThe total utilised budget for this department is: $${salaries} anually.\n`);
+
+    return provideMenu();
+}
 
 module.exports = begin;
 

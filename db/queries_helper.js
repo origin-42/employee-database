@@ -11,6 +11,25 @@ WHERE name = ?`;
 
 const addDeptName = `INSERT INTO department (name) VALUES (?)`;
 
+const getDepartmentEmployees = `
+SELECT employee.id, first_name, last_name, department.name AS department
+FROM employee
+LEFT JOIN role ON employee.role_id = role.id
+LEFT JOIN department ON role.department_id = department.id
+WHERE department.id = ?`;
+
+const getDepartmentSalaries = `
+SELECT role.salary
+FROM employee
+LEFT JOIN role ON employee.role_id = role.id
+LEFT JOIN department ON role.department_id = department.id
+WHERE department.id = ?`;
+
+const deleteFromDepartment = `
+DELETE FROM department
+WHERE id = ?`;
+
+
 // Role queries
 
 const selectRoles = `
@@ -20,6 +39,13 @@ FROM role`;
 const getRoles = `
 SELECT title, id
 FROM role`;
+const getRole = `
+SELECT id, title
+FROM role`;
+
+const deleteByRole = `
+DELETE FROM role
+WHERE id = ?`;
 
 const selectEmployees = `
 SELECT employee.id AS employee_id, concat(employee.first_name, " ", employee.last_name) AS employee_name, manager.id AS manager_id, concat(manager.first_name, " ", manager.last_name) AS managers_name, title, department.name AS department_name, salary 
@@ -55,12 +81,6 @@ ON employee.role_id = role.id
 LEFT JOIN department
 ON department.id = role.department_id`;
 
-const checkForManagers = `
-SELECT DISTINCT concat(manager.first_name, " ", manager.last_name) AS managers_name 
-FROM Employee employee
-LEFT JOIN Employee manager
-ON employee.manager_id = manager.id`;
-
 const addNewEmployee = `
 INSERT INTO employee (first_name, last_name, role_id, manager_id)
 VALUES
@@ -76,19 +96,28 @@ UPDATE employee
 SET manager_id = ?
 WHERE id = ?`;
 
+const selectSubordinates = `
+SELECT id, first_name, last_name FROM employee
+WHERE manager_id = ?`;
+
 module.exports = {
     selectDepartment,
     findDeptId,
+    getDepartmentEmployees,
+    getDepartmentSalaries,
+    deleteFromDepartment,
     selectRoles,
     selectEmployees,
     addDeptName,
     addRoleName,
     getRoles,
-    checkForManagers,
+    getRole,
+    deleteByRole,
     getAllData,
     addNewEmployee,
     updateEmployeeRole,
     selectEmployeesInfo,
     getEmployInfo,
-    updateManager
+    updateManager,
+    selectSubordinates
 }
