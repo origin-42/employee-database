@@ -26,16 +26,6 @@ This application a command line with node.js and applicable dependancies.
 
 ## Further Developments
 
-### Additional Features
-
-- Add the ability to view employees by manager
-
-- Add ability to view employees by department
-
-- Add ability to remove data specifically
-
-- Allow users to view the total utilized budget of a department
-
 ### Further Changes
 
 - Update the 'update employee' to be more accurate when selecting to update management roles.
