@@ -315,6 +315,12 @@ const getBudget = async () => {
     const details = [departmentSelected.department];
     
     const departmentEmployees = await db.promise().query(query.getDepartmentSalaries, details);
+    
+    if (departmentEmployees[0].length < 1) {
+        console.log(redText, "\nDepartment has no roles or employees\n");
+        return provideMenu();
+    };
+    
     const salaries = departmentEmployees[0].map(({salary, ...rest}) => +salary ).reduce(
         (previousValue, currentValue) => previousValue + currentValue);
 
