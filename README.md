@@ -63,7 +63,7 @@ npm start
 
 This video will run through how to use the application from the command line.
 
-[![Emnployee Database](./assets/screenshot.jpg)](link to video)
+[![Emnployee Database](./assets/employee_database.jpg)](https://youtu.be/JJv_0FzKfFQ)
 
 ## Credits
 
