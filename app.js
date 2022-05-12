@@ -220,7 +220,6 @@ const updateEmployee = async () => {
     details.unshift(roleName);
 
     await db.promise().query(query.updateEmployeeRole, details);
-    await db.promise().query()
 
     getEmploInfo();
 };
