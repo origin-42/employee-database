@@ -38,13 +38,12 @@ VALUES
 
 // Employee queries
 
-const getemplAndRoleData = `
-SELECT employee.id AS employee_id, concat(employee.first_name, " ", employee.last_name) AS employee_name, manager.id AS manager_id, concat(manager.first_name, " ", manager.last_name) AS managers_name, title, employee.role_id
-FROM Employee employee
-LEFT JOIN Employee manager
-ON employee.manager_id = manager.id
-LEFT JOIN role
-ON employee.role_id = role.id`;
+const selectEmployeesInfo = `
+SELECT *
+FROM employee`;
+
+const getEmployInfo = `
+SELECT first_name, last_name, id FROM employee`;
 
 const getAllData = `
 SELECT employee.id AS employee_id, concat(employee.first_name, " ", employee.last_name) AS employee_name, manager.id AS manager_id, concat(manager.first_name, " ", manager.last_name) AS managers_name, title, employee.role_id, role.department_id, department.name
@@ -62,38 +61,19 @@ FROM Employee employee
 LEFT JOIN Employee manager
 ON employee.manager_id = manager.id`;
 
-const checkManPositions = `
-SELECT title
-FROM role
-WHERE id = `;
-
-const getManagerId = `
-SELECT id
-FROM role
-WHERE title = ?`;
-
-const confirmManager = `
-SELECT *
-FROM employee
-WHERE role_id = ?`;
-
 const addNewEmployee = `
 INSERT INTO employee (first_name, last_name, role_id, manager_id)
 VALUES
 (?, ?, ?, ?)`;
 
-const addNewManager = `
-INSERT INTO employee (first_name, last_name, role_id)
-VALUES
-(?, ?, ?)`;
-
 const updateEmployeeRole = `
 UPDATE employee
-SET role_id = ?, manager_id = ?
+SET role_id = ?
 WHERE id = ?`;
 
-const removeRole = `
-DELETE FROM role 
+const updateManager = `
+UPDATE employee
+SET manager_id = ?
 WHERE id = ?`;
 
 module.exports = {
@@ -105,12 +85,10 @@ module.exports = {
     addRoleName,
     getRoles,
     checkForManagers,
-    checkManPositions,
-    getemplAndRoleData,
     getAllData,
     addNewEmployee,
-    confirmManager,
-    addNewManager,
-    getManagerId,
     updateEmployeeRole,
+    selectEmployeesInfo,
+    getEmployInfo,
+    updateManager
 }

@@ -40,7 +40,7 @@ const handleExceptions = (input, type) => {
 
 //  Construct Data from classes
 const greeting = [new PromptObj("greetingConfirmation", "Welcome to your Employee Registry! Enter to begin your queries. Ready to begin? ", "confirm")];
-const menuOptions = [new Choices("optionsSelect", "Choose an enquiry", "list", ["View all departments", "View all roles", "View all employees", "Add a department", "Add a role", "Add an employee", "Update an employee role", "Finish"])];
+const menuOptions = [new Choices("optionsSelect", "Choose an enquiry", "list", ["View all departments", "View all roles", "View all employees", "Add a department", "Add a role", "Add an employee", "Update an employee role", "Update an employees manager", "Finish"])];
 const AddDepartmentOption = [new PromptObj("departmentName", "What is the name of the department? ", "input", function (input) {
     return handleExceptions(input, "dept");
 })];
@@ -70,7 +70,7 @@ const addEmployeeOption = {
 };
 
 const getDepartments = (deptNames) => [new Choices("departmentSelection", "Which department will this role belong too? \n", "list", deptNames)];
-const getEmployeeName = (employees)=> [new Choices("employName", `Whose role will be updated? \n`, "list", employees)];
+const selectRole = (list) => [new Choices("employee", `Whose role will be updated? \n`, "list", list)]
 const getRoleName = (name, roleNames) => [new Choices("roleName", `Which role is ${name} being assigned? \n`, "list", roleNames)];
 const checkManagerName = (names) => [new Choices("manager", "Who is this persons Manager? ", "list", names)]
 
@@ -101,6 +101,8 @@ const provideMenu = async () => {
         promptEmployee();
     } else if (menuPrompt.optionsSelect === 'Update an employee role') {
         updateEmployee();
+    } else if (menuPrompt.optionsSelect === 'Update an employees manager') {
+        updateEmployeeManager();
     } else if (menuPrompt.optionsSelect === 'Finish') {
         // End Program
         console.log(greenText, "Updated completed. Application terminating.")
@@ -165,123 +167,73 @@ const getEmploInfo = async () => {
 
 // Add an employee
 const promptEmployee = async () => {
+    const promptName = await inquirer.prompt(addEmployeeOption.employeeInfo);
+    const details = [ promptName.name, promptName.sirname ]
 
-    // Get existing data from employee & role
-    const getAllData = await db.promise().query(query.getemplAndRoleData); // Get all data
+    const allRoles = await db.promise().query(query.selectRoles);
 
-    // Prompts
-    // Get first name and last name adding
-    const addEmplOpt = await inquirer.prompt(addEmployeeOption.employeeInfo); 
-    const { name, sirname } = addEmplOpt; // Save employee name
+    const roles = allRoles[0].map(({title, id}) => ({name: title, value: id}));
+    const selectedrole = await inquirer.prompt(getRoleName(details[0], roles))
+    details.push(selectedrole.roleName)
 
-    // Get new role
-    const getRoles = await db.promise().query(query.getRoles);
-    const roleNames = getRoles[0].map(role => role.title);
-    const assignRole = await inquirer.prompt(getRoleName(name, roleNames));
+    const employeesInfo = await db.promise().query(query.selectEmployeesInfo);
 
-    // Check if this role belongs to a manager
-    const roles = getAllData[0].filter(person => person.title === assignRole.roleName ? person : false);
+    const managers = employeesInfo[0].map(({first_name, last_name, id}) => ({name: `${first_name} ${last_name}`, value: id}));
+    managers.push({name: "No manager", value: null});
 
-    console.log(roles[0])
-    // Send data to DB
-    if (roles[0].managers_name) {
-        await db.promise().query(query.addNewEmployee, [name, sirname, roles[0].role_id, roles[0].manager_id]) // Add an employee
-    } else {
-        await db.promise().query(query.addNewManager, [name, sirname, roles[0].role_id]) // Add a manager
-    }
+    const employeesManager = await inquirer.prompt(checkManagerName(managers));
+    details.push(employeesManager.manager);
 
-    return getEmploInfo();
+    await db.promise().query(query.addNewEmployee, details);
+    
+    getEmploInfo();
 }
 
 const updateEmployee = async () => {
 
-    const getAllData = await db.promise().query(query.getAllData); // Get all data
-    const getAllEmployees = await db.promise().query(query.selectEmployees) // get all employees
-    const getAllRoles = await db.promise().query(query.getRoles) // get distinct managers
-
-    const employeeNames = getAllEmployees[0].map(employee => employee.employee_name) // Get employee names
-    const roleNames = getAllRoles[0].map(role => role.title) // Get role names
-
-    // Prompts
-    const selectedEmployee = await inquirer.prompt(getEmployeeName(employeeNames)) // Prompt for employee
-    const selectedRole = await inquirer.prompt(getRoleName(selectedEmployee.employName, roleNames)) // Prompt for role
+    const selectEmployee = await db.promise().query(query.getEmployInfo);
+    const employees = selectEmployee[0].map(({first_name, last_name, id}) => ({name: `${first_name} ${last_name}`, value: id}));
     
-    const employeeInfo = getAllData[0].find(employee => employee.employee_name == selectedEmployee.employName) // Get current info
-    const employeeNewRole = getAllData[0].find(role => role.title == selectedRole.roleName) // Get new info
-
-    // Manager selection clauses 
-    if (employeeInfo.role_id === employeeNewRole.role_id) {
-        // If the same role is selected, return menu.
-        console.log(redText, `You've selected the same role. No updates made.`);
-         return getEmploInfo();
-    } else if (!employeeInfo.manager_id && !employeeNewRole.manager_id) {
-        // Old role needs filling & new roles current manager needs their role reassigned
-        await updateOldManager(employeeInfo, getAllData, employeeNames, roleNames);
-
-        console.log(redText, `The ${employeeInfo.title} role remains unnassigned. A new manager is required. Please update the position.\n`);
-        await updateNewManager(employeeNewRole, getAllData, employeeNames);
-    } else if (!employeeInfo.manager_id) {
-        // Old role needs filling
-        await updateOldManager(employeeInfo, getAllData, employeeNames, roleNames);
-    } else if (!employeeNewRole.manager_id) {
-        // New roles current manager needs their role reassigned
-        console.log(redText, `The ${employeeInfo.title} role belonged to ${employeeNewRole.managers_name}. A new manager is required. Please update the position.\n`);
-        await updateNewManager(employeeNewRole, getAllData, employeeNames);
-    }
-
+    const getEmployee = await inquirer.prompt(selectRole(employees));
+    const details = [getEmployee.employee];
     
-    // Update employee
-    console.log(greenText, `${employeeInfo.employee_name} has been assigned as ${employeeNewRole.title}.`);
-    await db.promise().query(query.updateEmployeeRole, [employeeNewRole.role_id, employeeNewRole.manager_id, employeeInfo.employee_id]);
-    return getEmploInfo();
-}
+    const getEmployeeRole = await db.promise().query(query.getRoles);
+    const roles = getEmployeeRole[0].map(({title, id}) => ({name: title, value: id}));
 
-const updateOldManager = async (oldEmployee, data, employeeNames) => {
-    // Remove selected employee and managers from list
-    const newNames = await formatEmployees(oldEmployee, employeeNames)
+    const getNewRole = await inquirer.prompt(getRoleName("this employee", roles));
+    const roleName = getNewRole.roleName;
+    details.unshift(roleName);
+
+    await db.promise().query(query.updateEmployeeRole, details);
+    await db.promise().query()
+
+    getEmploInfo();
+};
+
+const updateEmployeeManager = async () => {
+
+    const selectEmployee = await db.promise().query(query.getEmployInfo);
+    const employees = selectEmployee[0].map(({first_name, last_name, id}) => ({name: `${first_name} ${last_name}`, value: id}));
+
+    const getEmployee = await inquirer.prompt(selectRole(employees));
+    const details = [getEmployee.employee];
+
+    const employeesInfo = await db.promise().query(query.selectEmployeesInfo);
     
-    // Prompt for new employee to add to old, unnassigned role
-    console.log(redText, `\nSomebody will need to replace ${oldEmployee.employee_name} as the ${oldEmployee.title}.\n`)
-    const selectedEmployee = await inquirer.prompt(getEmployeeName(newNames)) // Prompt for employee
-    
-    const employeeInfo = data[0].find(employee => employee.employee_name == selectedEmployee.employName) // Get current info
-    
-    // Assign the old role
-    console.log(greenText, `${employeeInfo.employee_name} has been assigned as ${oldEmployee.title}.\n`);
-    await db.promise().query(query.updateEmployeeRole, [employeeInfo.role_id, employeeInfo.manager_id, oldEmployee.employee_id]);
-  
-}
-const updateNewManager = async (employeeInfo, data, employeeNames) => {
-    // Remove selected employee and managers from list
-    const newNames = await formatEmployees(oldEmployee, employeeNames)
+    const managers = employeesInfo[0].map(({first_name, last_name, id}) => ({name: `${first_name} ${last_name}`, value: id}));
+    managers.push({name: "No manager", value: null});
 
-    // Prompt for the role which the current manager will be taking
-    const selectedEmployee = await inquirer.prompt(getEmployeeName(newNames)) // Prompt for employee
-    
-    employeeInfo = data[0].find(employee => employee.employee_name == selectedEmployee.employName) // Get current info
+    const employeesManager = await inquirer.prompt(checkManagerName(managers));
+    details.unshift(employeesManager.manager);
 
-    // Assign the old role
-    console.log(greenText, `${employeeInfo.employee_name} has been assigned as ${employeeInfo.title}.\n`);
-    await db.promise().query(query.updateEmployeeRole, [employeeInfo.role_id, employeeInfo.manager_id, employeeInfo.employee_id]);
+    await db.promise().query(query.updateManager, details)
+    console.log(details)
+          
+    getEmploInfo();
+};
 
-}
 
-const formatEmployees = async (oldEmployee, employeeNames) => {
-    const managers = await db.promise().query(query.checkForManagers);
-   
-    // Remove selected employee from list
-    let newNames = employeeNames.filter(employee => employee != oldEmployee.employee_name) // refresh employee list
-    newNames.forEach(name => {
-        console.log(name)
-        managers[0].forEach(manager => {
-            if (name === manager.managers_name) {
-                let index = newNames.indexOf(name);
-                newNames.splice(index, 1);
-            }
-        })
-    })
-    return newNames;
-}
 
 
 module.exports = begin;
+
